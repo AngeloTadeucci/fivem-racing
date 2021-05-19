@@ -1,0 +1,61 @@
+html,
+body {
+	/* margin: 0px auto 0px auto; */
+	height: 100%;
+	font-family: 'Open Sans', sans-serif;
+	overflow: hidden;
+	align-items: center;
+	/* background-color: darkgray; */
+}
+
+#racing {
+	margin: 5px auto 5px auto;
+	margin-top: 20%;
+	border-radius: 5px;
+	background-color: rgb(54, 54, 54);
+	width: fit-content;
+	height: fit-content;
+	padding: 3px;
+	color: white;
+}
+
+#race-menu {
+	padding: 5px;
+	border-radius: 5px;
+	background-color: rgb(31, 31, 31);
+	border: 1px;
+	border-color: black;
+	width: unset;
+	border-style: solid;
+	/* display: inline-block; */
+	/* vertical-align: top; */
+}
+
+#race-stats {
+	background-color: rgb(31, 31, 31);
+	border: 1px;
+	border-color: black;
+	border-style: solid;
+	display: inline-block;
+	vertical-align: top;
+}
+
+button {
+	border-radius: 10px;
+}
+
+#exit {
+	float: right;
+}
+
+#voltas {
+	/* float: right; */
+	/* align-self: flex-end; */
+	/*  */
+	width: 50px;
+}
+
+#select {
+	flex: content;
+	width: 200px;
+}
