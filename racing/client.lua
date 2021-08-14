@@ -413,7 +413,7 @@ CreateThread(function ()
 					end
 				end
 
-				Draw3DText(pos.x,pos.y,pos.z+1.0,"[E] Add | [Shift + E] Remove | ⬆ Radius ⬇")
+				Draw3DText(pos.x,pos.y,pos.z+1.0,"[E] Add | [Shift + E] Remove | Scroll wheel ⬆ Radius ⬇")
 				DrawMarker(1, pos.x, pos.y, pos.z-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, realSize, realSize, 0.3, 255, 0, 0, 255, false, false,
 												2, nil, nil, false)
 				if IsControlJustPressed(0, 38) then
