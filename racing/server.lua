@@ -1,17 +1,19 @@
 local races = {}
 
+local collectionName = "races"
+
 RegisterNetEvent("racing:save-map")
 AddEventHandler("racing:save-map", function(pCurrentMap, pName, pDistance, pCreator)
 	local src = source
 	local pCreatorID = GetPlayerIdentifier(source)
-	exports.mongodb:findOne({collection = "corridas", query = {name = pName}}, function (success, result)
+	exports.mongodb:findOne({collection = collectionName, query = {name = pName}}, function (success, result)
 		if not success then
 			print("[MongoDB] Error in findOne: "..tostring(result))
 			TriggerClientEvent("racing:notify", src, "Something went wrong")
 			return
 		end
 		if #result == 0 then
-		   exports.mongodb:insertOne({collection = "corridas", document = {
+		   exports.mongodb:insertOne({collection = collectionName, document = {
 			   name = pName, distance = pDistance, checkpoints = pCurrentMap, creator = pCreator, creatorid = pCreatorID
 			}}, function (success, result, insertedIds)
 				if not success then
@@ -21,11 +23,11 @@ AddEventHandler("racing:save-map", function(pCurrentMap, pName, pDistance, pCrea
 				end
 				print("[MongoDB] Successfuly inserted: " .. insertedIds[1])
 				TriggerClientEvent("racing:saved", src)
-				TriggerClientEvent("racing:notify", src, "Salvo com sucesso")
+				TriggerClientEvent("racing:notify", src, "Saved with success")
 			end)
 		end
 		if #result ~= 0 then
-			return TriggerClientEvent("racing:notify", src, "Já existe uma corrida com esse nome. Tente outro nome.")
+			return TriggerClientEvent("racing:notify", src, "Already exists an race with this name.")
 		end
 	end)
 end)
@@ -33,7 +35,7 @@ end)
 RegisterNetEvent("racing:load-races")
 AddEventHandler("racing:load-races", function()
 	local src = source
-	exports.mongodb:find({collection = "corridas", query = {}}, function (success, result)
+	exports.mongodb:find({collection = collectionName, query = {}}, function (success, result)
 		if not success then
 		   print("[MongoDB] Error in findOne: "..tostring(result))
 			return
@@ -48,7 +50,7 @@ RegisterNetEvent("racing:load-map")
 AddEventHandler("racing:load-map", function(pID)
 	local src = source
 	-- Get saved player races and load race
-	exports.mongodb:findOne({collection = "corridas", query = {_id = pID}}, function (success, result)
+	exports.mongodb:findOne({collection = collectionName, query = {_id = pID}}, function (success, result)
 		if not success then
 			print("[MongoDB] Error in findOne: "..tostring(result))
 			TriggerClientEvent("racing:notify", src, "Something went wrong")
@@ -60,23 +62,23 @@ AddEventHandler("racing:load-map", function(pID)
 			TriggerClientEvent("racing:loaded-map", src, result[1])
 
 			-- Send notification to player
-			local msg = result[1].name .. " carregado!"
+			local msg = result[1].name .. " loaded successfully!"
 			TriggerClientEvent("racing:notify", src, msg)
 		end
 	end)
 end)
 
-RegisterNetEvent("racing:delete-map") -- Não usado no momento
+RegisterNetEvent("racing:delete-map") -- Not being used
 AddEventHandler("racing:delete-map", function(pName)
 	local src = source
-	exports.mongodb:deleteOne({collection = "corridas", query = {name = pName}}, function(success, result)
+	exports.mongodb:deleteOne({collection = collectionName, query = {name = pName}}, function(success, result)
 		if not success then
 			print("[MongoDB] Error in deleteOne: "..tostring(result))
 			TriggerClientEvent("racing:notify", src, "Error")
 			return
 		end
 		print("[MongoDB] Successfuly deleted: " .. result)
-		TriggerClientEvent("racing:notify", src, "Deletado com sucesso.")
+		TriggerClientEvent("racing:notify", src, "Deleted with success.")
 	end)
 end)
 
@@ -151,19 +153,20 @@ AddEventHandler("racing:finishedRace_sv", function(index, fastestLap)
 				-- Send winner notification to players
 				for _, pSource in pairs(players) do
 					if pSource == src then
-						local msg = ("Você ganhou: [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
-						local msg2 = ("Volta mais rápida: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
+						local msg = ("You own: [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
+						local msg2 = ("Fastest lap: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
 						TriggerClientEvent("racing:notify", pSource, msg)
 						TriggerClientEvent("racing:notify", pSource, msg2)
 					elseif CONFIG_SV.notifyOfWinner then
-						local msg = ("%s ganhou [%02d:%06.3f]"):format(getName(src), timeMinutes, timeSeconds)
+						local msg2 = (" with fastest lap time: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
+						local msg = ("%s won [%02d:%06.3f]" .. msg2):format(getName(src), timeMinutes, timeSeconds)
 						TriggerClientEvent("racing:notify", pSource, msg)
 					end
 				end
 			else
 				-- Loser, send notification to only the player
-				local msg = ("Você perdeu: [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
-				local msg2 = ("Volta mais rápida: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
+				local msg = ("You lost: [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
+				local msg2 = ("Fastest lap: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
 				TriggerClientEvent("racing:notify", src, msg)
 				TriggerClientEvent("racing:notify", src, msg2)
 			end

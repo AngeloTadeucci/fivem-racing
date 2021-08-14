@@ -40,14 +40,14 @@ $(function () {
 			$(option).html('');
 			$('#races').append(option);
 			for (let i = 0; i < races.length; i++) {
-				var option = new Option(races[i]['name'], races[i]['_id']);
+				var option = new Option(races[i]['name'] + " | Creator: " + races[i]['creator'], races[i]['_id']);
 				$(option).html(races[i]['name']);
 				$('#races').append(option);
 			}
 			$('#races').val(lastRaceSelected);
 		}
 	});
-	// TODO: re select last loaded race
+
 	$('#load-start').click(function () {
 		if (currentRaceSelected == '----------') {
 			return;
