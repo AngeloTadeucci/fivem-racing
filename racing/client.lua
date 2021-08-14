@@ -51,7 +51,7 @@ RegisterCommand("race", function(source, args)
 		TriggerEvent('chat:addMessage', {
 			color = { 255, 0, 0},
 			multiline = true,
-			args = {"[Races]", "Gravando..."}
+			args = {"[Races]", "Recording..."}
 		  })
 	elseif args[1] == "save" then
 		-- Check name was provided and checkpoints are recorded
@@ -61,11 +61,17 @@ RegisterCommand("race", function(source, args)
 			return TriggerEvent('chat:addMessage', {
 				color = { 255, 0, 0},
 				multiline = true,
-				args = {"[Races]", "Digite um nome para a corrida. 😡"}
+				args = {"[Races]", "Type an name for the race dummy. 😡"}
 			})
 		end
 
 		SaveMap(TableToString(args))
+	elseif args[1] == "delete" then
+		TriggerEvent('chat:addMessage', {
+				color = { 255, 0, 0},
+				multiline = true,
+				args = {"[Races]", "Sorry, you can only delete races manually for now ask the server owner"}
+			})
 	elseif args[1] == "cancel" then
 		-- Send cancel event to server
 		TriggerServerEvent('StreetRaces:cancelRace_sv')
@@ -276,7 +282,6 @@ CreateThread(function ()
 									if raceStatus.lapTime < raceStatus.fastestLap then
 										raceStatus.fastestLap = raceStatus.lapTime
 									end
-									TriggerServerEvent("racing:fastestlap", raceStatus.fastestLap, GetEntityModel(vehicle))
 									-- Increment lap
 									raceStatus.lap = raceStatus.lap+1
 
@@ -310,17 +315,17 @@ CreateThread(function ()
 					local timeSeconds = (GetGameTimer() - race.startTime)/1000.0
 					local timeMinutes = math.floor(timeSeconds/60.0)
 					timeSeconds = timeSeconds - 60.0*timeMinutes
-					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y-0.035, ("~y~Tempo %02d:%06.3f"):format(timeMinutes, timeSeconds), 0.7)
+					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y-0.035, ("~y~Total time %02d:%06.3f"):format(timeMinutes, timeSeconds), 0.7)
 
 					local fastestTimeSeconds = (raceStatus.fastestLap)/1000.0
 					local fastestTimeMinutes = math.floor(fastestTimeSeconds/60.0)
 					fastestTimeSeconds = fastestTimeSeconds - 60.0*fastestTimeMinutes
-					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y, ("~y~Volta mais rápida %02d:%06.3f"):format(fastestTimeMinutes, fastestTimeSeconds), 0.7)
+					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y, ("~y~Fastest lap %02d:%06.3f"):format(fastestTimeMinutes, fastestTimeSeconds), 0.7)
 
 					local checkpoint = race.checkpoints[raceStatus.checkpoint]
 					local checkpointDist = math.floor(GetDistanceBetweenCoords(position.x, position.y, position.z, vector3(checkpoint.x, checkpoint.y, 0), false))
 					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y + 0.04, ("~y~CHECKPOINT %d/%d (%dm)"):format(raceStatus.checkpoint-1, #race.checkpoints, checkpointDist), 0.5)
-					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y + 0.07, ("~y~Volta %d/%d"):format(raceStatus.lap, race.laps), 0.5)
+					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y + 0.07, ("~y~Lap %d/%d"):format(raceStatus.lap, race.laps), 0.5)
 				end
 
 			elseif raceStatus.state == RACE_STATE_JOINED then --Player joined, waiting for countdown
@@ -333,7 +338,6 @@ CreateThread(function ()
 					raceStatus.state = RACE_STATE_RACING
 					raceStatus.checkpoint = 0
 					FreezeEntityPosition(vehicle, false)
-					exports["vehiclemod"]:SetNosAmount(50)
 				elseif count <= CONFIG_CL.freezeDuration then
 					-- Display countdown text and freeze vehicle position
 					Draw2DText(0.5, 0.4, ("~y~%d"):format(math.ceil(count/1000.0)), 3.0)
@@ -341,8 +345,8 @@ CreateThread(function ()
 				else
 					-- Draw 3D start time and join text
 					-- local temp, zCoord = GetGroundZFor_3dCoord(race.startCoords.x, race.startCoords.y, 9999.9, 1)
-					Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+1.0, ("Corrida começando em ~y~%d~w~s"):format(math.ceil(count/1000.0)))
-					Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+0.80, "Entrou")
+					Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+1.0, ("Race starting in ~y~%d~w~s"):format(math.ceil(count/1000.0)))
+					Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+0.80, "Joined")
 				end
 			elseif raceStatus.state == RACE_STATE_NONE and raceStatus.checkpoint ~= 0 then
 				ClearBlipsAndCheckpoints()
@@ -409,8 +413,7 @@ CreateThread(function ()
 					end
 				end
 
-				Draw3DText(pos.x,pos.y,pos.z+1.0,"Aperte E para adcionar um checkpoint")
-				Draw3DText(pos.x,pos.y,pos.z+2.0,"Scrollwheel para Cima e Baixo para aumentar ou diminuir o tamanho do checkpoint")
+				Draw3DText(pos.x,pos.y,pos.z+1.0,"[E] Add | [Shift + E] Remove | ⬆ Radius ⬇")
 				DrawMarker(1, pos.x, pos.y, pos.z-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, realSize, realSize, 0.3, 255, 0, 0, 255, false, false,
 												2, nil, nil, false)
 				if IsControlJustPressed(0, 38) then
@@ -421,7 +424,7 @@ CreateThread(function ()
 					end
 				end
 			else
-				Draw3DText(pos.x,pos.y,pos.z+1.0,"Entre em um carro para continuar")
+				Draw3DText(pos.x,pos.y,pos.z+1.0,"Enter an vehicle to continue")
 			end
 			Wait(0)
 		else
@@ -549,7 +552,7 @@ function SaveMap(name)
 		return TriggerEvent('chat:addMessage', {
 					color = { 255, 0, 0},
 					multiline = true,
-					args = {"[Races]", "Sua corrida tem zero checkpoints? lol"}
+					args = {"[Races]", "Your race has zero checkpoints? lol"}
 				})
 	end
 end
@@ -593,7 +596,7 @@ function Draw3DText(x, y, z, text)
 	if onScreen then
 			-- Calculate text scale to use
 			local dist = GetDistanceBetweenCoords(GetGameplayCamCoords(), x, y, z, 1)
-			local scale = 1.8*(1/dist)*(1/GetGameplayCamFov())*100
+			local scale = 1.2*(1/dist)*(1/GetGameplayCamFov())*100
 
 			-- Draw text on screen
 			SetTextScale(scale, scale)
