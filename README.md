@@ -1,6 +1,6 @@
 # fivem-racing
 
-Racing script for FiveM using MongoDB as database. Most text rendered in-game is in portuguese, sorry.
+Racing script for FiveM using MongoDB as database.
 
 ## Commands
 
