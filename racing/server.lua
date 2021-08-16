@@ -154,11 +154,16 @@ AddEventHandler("racing:finishedRace_sv", function(index, fastestLap)
 				for _, pSource in pairs(players) do
 					if pSource == src then
 						local msg = ("You own: [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
-						local msg2 = ("Fastest lap: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
 						TriggerClientEvent("racing:notify", pSource, msg)
-						TriggerClientEvent("racing:notify", pSource, msg2)
+						if race.laps > 1 then
+							local msg2 = ("Fastest lap: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
+							TriggerClientEvent("racing:notify", pSource, msg2)
+						end
 					elseif CONFIG_SV.notifyOfWinner then
-						local msg2 = (" with fastest lap time: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
+						local msg2 = ""
+						if race.laps > 1 then
+							msg2 = (" with fastest lap time: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
+						end
 						local msg = ("%s won [%02d:%06.3f]" .. msg2):format(getName(src), timeMinutes, timeSeconds)
 						TriggerClientEvent("racing:notify", pSource, msg)
 					end
@@ -166,9 +171,11 @@ AddEventHandler("racing:finishedRace_sv", function(index, fastestLap)
 			else
 				-- Loser, send notification to only the player
 				local msg = ("You lost: [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
-				local msg2 = ("Fastest lap: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
 				TriggerClientEvent("racing:notify", src, msg)
-				TriggerClientEvent("racing:notify", src, msg2)
+				if race.laps > 1 then
+					local msg2 = ("Fastest lap: [%02d:%06.3f]"):format(fastestTimeMinutes, fastestTimeSeconds)
+					TriggerClientEvent("racing:notify", src, msg2)
+				end
 			end
 
 			-- Remove player form list and break

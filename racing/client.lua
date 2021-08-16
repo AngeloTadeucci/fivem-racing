@@ -3,6 +3,8 @@ local realSize = 6.0
 local currentMap = {}
 local SetBlips = {}
 local checkpointMarkers = {}
+local addCheckpointKey = ""
+local joinRaceKey = ""
 
 -- Races and race status
 local temprace = {}
@@ -14,6 +16,8 @@ local raceStatus = {
 	lap = 0,
 	lapTime = 0,
 	lastLapTime = 0,
+	currentLap = 0,
+	previousLap = 0,
 	fastestLap = 0
 }
 
@@ -45,6 +49,8 @@ RegisterCommand("race", function(source, args)
 		ResetRace()
 	elseif args[1] == "record" then
 		-- Clear waypoint, cleanup recording and set flag to start recording
+		local placeCheckpointHash = 0xE5DB958 | 0x80000000
+		addCheckpointKey = string.sub(GetControlInstructionalButton(2, placeCheckpointHash, 1), 3, 3)
 		SetWaypointOff()
 		ClearBlipsAndCheckpoints()
 		raceStatus.state = RACE_STATE_RECORDING
@@ -89,6 +95,38 @@ RegisterCommand("race", function(source, args)
 	end
 end)
 
+RegisterKeyMapping('*enterrace', 'Enter race', 'keyboard', 'E')
+
+RegisterCommand("*enterrace", function ()
+	local player = PlayerPedId()
+	local position = GetEntityCoords(player)
+
+	for index, race in pairs(races) do
+		-- Get current time and player proximity to start
+		local currentTime = GetGameTimer()
+		-- local proximity = GetDistanceBetweenCoords(position.x, position.y, position.z, race.startCoords.x, race.startCoords.y, race.startCoords.z, true)
+		local proximity = #(position - vector3(race.checkpoints[1].x, race.checkpoints[1].y, race.checkpoints[1].z))
+
+		-- if player is in proximity, race hasn't started and player didn't joined, join the race
+		if proximity < CONFIG_CL.joinProximity and currentTime < race.startTime and raceStatus.state ~= RACE_STATE_JOINED then
+			TriggerServerEvent('racing:joinRace_sv', index)
+			break
+		end
+	end
+end)
+
+RegisterKeyMapping('*placecheckpoint', 'Place checkpoint', 'keyboard', 'E')
+
+RegisterCommand("*placecheckpoint", function ()
+	if raceStatus.state == RACE_STATE_RECORDING then
+		if (IsControlPressed(0, 21)) then
+			PopLastCheckpoint()
+		else
+			AddCheckPoint()
+		end
+	end
+end)
+
 RegisterNUICallback("error", function (data)
 	chat(data.error, {255,0,0})
 	SetDisplay(false)
@@ -122,7 +160,7 @@ RegisterNUICallback("loadRace", function (data)
 end)
 
 RegisterNUICallback("startRace", function (data)
-	TriggerServerEvent('racing:createRace_sv', data.voltas, 15000, vector3(temprace.checkpoints[1].x, temprace.checkpoints[1].y, temprace.checkpoints[1].z), temprace.checkpoints)
+	TriggerServerEvent('racing:createRace_sv', data.voltas, CONFIG_CL.joinDuration, vector3(temprace.checkpoints[1].x, temprace.checkpoints[1].y, temprace.checkpoints[1].z), temprace.checkpoints)
 end)
 
 -- Client event for loading a race
@@ -279,11 +317,22 @@ CreateThread(function ()
 										end
 										raceStatus.lastLapTime = GetGameTimer()
 									end
+
 									if raceStatus.lapTime < raceStatus.fastestLap then
 										raceStatus.fastestLap = raceStatus.lapTime
 									end
+
+									if raceStatus.lap == 0 then
+										raceStatus.currentLap = race.startTime
+									else
+										raceStatus.currentLap = GetGameTimer()
+									end
+
+									if raceStatus.lap ~= 0 then
+										raceStatus.previousLap = raceStatus.lapTime
+									end
 									-- Increment lap
-									raceStatus.lap = raceStatus.lap+1
+									raceStatus.lap = raceStatus.lap + 1
 
 									-- Increment checkpoint counter and get next checkpoint
 									raceStatus.checkpoint = raceStatus.checkpoint + 1
@@ -312,10 +361,22 @@ CreateThread(function ()
 				-- Draw HUD when it's enabled
 				if CONFIG_CL.hudEnabled then
 					-- Draw time and checkpoint HUD above minimap
+					if CONFIG_CL.enablePreviousLapTimer then
+						local lastLapTimeSeconds = (raceStatus.previousLap)/1000.0
+						local lastLapTimeMinutes = math.floor(lastLapTimeSeconds/60.0)
+						lastLapTimeSeconds = lastLapTimeSeconds - 60.0*lastLapTimeMinutes
+						Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y-0.105, ("~y~Previous lap %02d:%06.3f"):format(lastLapTimeMinutes, lastLapTimeSeconds), 0.7)
+					end
+
 					local timeSeconds = (GetGameTimer() - race.startTime)/1000.0
 					local timeMinutes = math.floor(timeSeconds/60.0)
 					timeSeconds = timeSeconds - 60.0*timeMinutes
-					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y-0.035, ("~y~Total time %02d:%06.3f"):format(timeMinutes, timeSeconds), 0.7)
+					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y-0.070, ("~y~Total time %02d:%06.3f"):format(timeMinutes, timeSeconds), 0.7)
+
+					local currentLapTimeSeconds = (GetGameTimer() - raceStatus.currentLap)/1000.0
+					local currentLapTimeMinutes = math.floor(currentLapTimeSeconds/60.0)
+					currentLapTimeSeconds = currentLapTimeSeconds - 60.0*currentLapTimeMinutes
+					Draw2DText(CONFIG_CL.hudPosition.x, CONFIG_CL.hudPosition.y-0.035, ("~y~Current lap %02d:%06.3f"):format(currentLapTimeMinutes, currentLapTimeSeconds), 0.7)
 
 					local fastestTimeSeconds = (raceStatus.fastestLap)/1000.0
 					local fastestTimeMinutes = math.floor(fastestTimeSeconds/60.0)
@@ -336,6 +397,7 @@ CreateThread(function ()
 				if count <= 0 then
 					-- Race started, set racing state and unfreeze vehicle position
 					raceStatus.state = RACE_STATE_RACING
+					raceStatus.currentLap = GetGameTimer()
 					raceStatus.checkpoint = 0
 					FreezeEntityPosition(vehicle, false)
 				elseif count <= CONFIG_CL.freezeDuration then
@@ -366,15 +428,11 @@ CreateThread(function ()
 					if proximity < CONFIG_CL.joinProximity and currentTime < race.startTime then
 						-- Draw 3D text
 						local count = math.ceil((race.startTime - currentTime)/1000.0)
-						-- local temp, zCoord = GetGroundZFor_3dCoord(race.startCoords.x, race.startCoords.y, 9999.9, 0)
-						Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+1.0, ("Race starting in ~y~%d~w~s"):format(count))
-						Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+0.80, "Press [~g~E~w~] to join")
 
-						-- Check if player enters the race and send join event to server
-						if IsControlJustReleased(1, CONFIG_CL.joinKeybind) then
-							TriggerServerEvent('racing:joinRace_sv', index)
-							break
-						end
+						local enterRaceHash = 0x804EBA1B | 0x80000000
+						joinRaceKey = string.sub(GetControlInstructionalButton(2, enterRaceHash, 1), 3, 3)
+						Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+1.0, ("Race starting in ~y~%d~w~s"):format(count))
+						Draw3DText(race.startCoords.x, race.startCoords.y, race.startCoords.z+0.80, ("Press [~g~%s~w~] to join"):format(joinRaceKey))
 					end
 				end
 			end
@@ -413,16 +471,9 @@ CreateThread(function ()
 					end
 				end
 
-				Draw3DText(pos.x,pos.y,pos.z+1.0,"[E] Add | [Shift + E] Remove | Scroll wheel ⬆ Radius ⬇")
+				Draw3DText(pos.x,pos.y,pos.z+1.0, ("[%s] Add | [Shift + %s] Remove | Scroll wheel ⬆ Radius ⬇"):format(addCheckpointKey, addCheckpointKey))
 				DrawMarker(1, pos.x, pos.y, pos.z-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, realSize, realSize, 0.3, 255, 0, 0, 255, false, false,
 												2, nil, nil, false)
-				if IsControlJustPressed(0, 38) then
-					if (IsControlPressed(0, 21)) then
-						PopLastCheckpoint()
-					else
-						AddCheckPoint()
-					end
-				end
 			else
 				Draw3DText(pos.x,pos.y,pos.z+1.0,"Enter an vehicle to continue")
 			end
@@ -572,6 +623,8 @@ function ResetRace()
 	raceStatus.lap = 0
 	raceStatus.lapTime = 0
 	raceStatus.lastLapTime = 0
+	raceStatus.currentLap = 0
+	raceStatus.previousLap = 0
 	raceStatus.fastestLap = 0
 end
 
